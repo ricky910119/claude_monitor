@@ -347,3 +347,4 @@ class ClaudeHUD:
 if __name__ == "__main__":
     app = ClaudeHUD()
     app.run()
+
