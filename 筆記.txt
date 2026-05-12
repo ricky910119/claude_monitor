@@ -1,0 +1,3 @@
+查背景有沒有關乾淨 在cmd裡    tasklist | findstr /i "pythonw claude"
+
+人家做好現成的 https://eddmann.com/ClaudeMeter/
