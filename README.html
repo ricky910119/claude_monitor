@@ -323,7 +323,7 @@
     <div class="feature-card">
       <div class="icon">🔄</div>
       <div class="title">自動刷新</div>
-      <p class="desc">每 30 秒自動重新抓取，每次都重啟 claude.exe 確保資料最新</p>
+      <p class="desc">每 5 分鐘自動重新抓取，每次都重啟 claude.exe 確保資料最新</p>
     </div>
     <div class="feature-card">
       <div class="icon">📌</div>
@@ -333,7 +333,7 @@
     <div class="feature-card">
       <div class="icon">🖱️</div>
       <div class="title">拖曳 + 釘選</div>
-      <p class="desc">拖曳任意區域移動視窗。⊡ 按鈕釘選後鎖定位置（綠色），再點一下解除</p>
+      <p class="desc">預設已釘選（⊡ 綠色）。點一下解除釘選可拖曳移動，再點一下重新釘選鎖定位置</p>
     </div>
   </div>
 
@@ -388,7 +388,7 @@ claude_monitor.vbs   # 雙擊啟動器（放桌面，無 cmd 視窗）</pre>
   <table>
     <tr><th>操作</th><th>功能</th></tr>
     <tr><td>拖曳視窗</td><td>移動 HUD 位置（任意區域都可拖曳）</td></tr>
-    <tr><td>點擊 ⊡</td><td>釘選 / 解除釘選（綠色 = 已釘選，鎖定位置）</td></tr>
+    <tr><td>點擊 ⊡</td><td>釘選 / 解除釘選（預設綠色 = 已釘選，點一下解除可拖曳）</td></tr>
     <tr><td>點擊 ↺</td><td>手動刷新</td></tr>
     <tr><td>點擊 ✕</td><td>關閉（自動結束背景 claude.exe）</td></tr>
     <tr><td>右鍵</td><td>選單（手動刷新 / 退出）</td></tr>
@@ -466,12 +466,13 @@ claude_monitor.vbs   # 雙擊啟動器（放桌面，無 cmd 視窗）</pre>
   <h2>自訂設定</h2>
   <table>
     <tr><th>設定</th><th>位置</th><th>說明</th></tr>
-    <tr><td>刷新間隔</td><td><code>refresh_loop()</code> 的 <code>time.sleep(30)</code></td><td>單位秒，預設 30</td></tr>
+    <tr><td>刷新間隔</td><td><code>refresh_loop()</code> 的 <code>time.sleep(300)</code></td><td>單位秒，預設 300（5 分鐘）</td></tr>
     <tr><td>置頂檢查間隔</td><td><code>_keep_on_top()</code> 的 <code>root.after(1000, ...)</code></td><td>單位毫秒，預設 1000</td></tr>
     <tr><td>黃色閾值</td><td><code>pct >= 70</code></td><td>預設 70%，影響進度條與文字顏色</td></tr>
     <tr><td>紅色閾值</td><td><code>pct >= 90</code></td><td>預設 90%，影響進度條與文字顏色</td></tr>
     <tr><td>透明度</td><td><code>-alpha, 0.75</code></td><td>0.0～1.0</td></tr>
-    <tr><td>起始位置</td><td><code>geometry("+50+50")</code></td><td>距螢幕左上角偏移</td></tr>
+    <tr><td>起始位置</td><td><code>geometry("+30+1106")</code></td><td>距螢幕左上角偏移</td></tr>
+    <tr><td>預設釘選</td><td><code>self.pinned = True</code></td><td>True = 啟動時鎖定，False = 啟動時可拖曳</td></tr>
     <tr><td>時區</td><td><code>TAIPEI_TZ</code></td><td>預設 UTC+8</td></tr>
   </table>
 

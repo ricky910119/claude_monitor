@@ -27,7 +27,7 @@ class ClaudeHUD:
         self.root.attributes("-alpha", 0.75)
         self.root.configure(bg='#121212')
         self.root.config(highlightbackground="#333333", highlightthickness=1)
-        self.root.geometry("+50+50")
+        self.root.geometry("+30+1106")
 
         # Outer frame: sections left, buttons top-right
         outer = tk.Frame(self.root, bg="#121212")
@@ -38,7 +38,7 @@ class ClaudeHUD:
         buttons_frame.pack(side="right", anchor="n", padx=(0, 6), pady=(4, 0))
 
         self.btn_pin = tk.Label(
-            buttons_frame, text="⊡", fg="#555555", bg="#121212",
+            buttons_frame, text="⊡", fg="#00FF7F", bg="#121212",
             font=("Segoe UI", 9), cursor="hand2"
         )
         self.btn_pin.pack(side="left", padx=(0, 4))
@@ -86,7 +86,7 @@ class ClaudeHUD:
         self.pty = None
         self.buf = []
         self.buf_lock = threading.Lock()
-        self.pinned = False
+        self.pinned = True
         self.x = self.y = 0
 
         self.root.after(100, self._set_rounded_corners)
@@ -271,7 +271,7 @@ class ClaudeHUD:
         return self.start_pty()
 
     def update_usage(self):
-        self._set_status("抓取中...", "dim")
+        self._set_status("抓取中...", "bar")
         try:
             if not self.ensure_pty():
                 raise Exception("PTY 啟動失敗")
@@ -314,7 +314,7 @@ class ClaudeHUD:
     def refresh_loop(self):
         while True:
             self.update_usage()
-            time.sleep(30)
+            time.sleep(300)
 
     def _toggle_pin(self):
         self.pinned = not self.pinned
