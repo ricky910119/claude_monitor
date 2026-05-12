@@ -6,10 +6,9 @@
 
 ## 畫面預覽
 
-```
-Current  in 1hr 13min    Weekly  Tue 3:00am    Extra  Jun 1    ↺ ✕
-████████████░░░░░░░░ 59%  ██████████████░░░░░░ 59%  ███████████████░░░░░ 63%
-```
+![抓取中](demo/messageImage_1778550539564.jpg)
+
+![用量顯示](demo/messageImage_1778550549208.jpg)
 
 ---
 
