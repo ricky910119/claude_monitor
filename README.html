@@ -293,8 +293,8 @@
   <!-- Preview -->
   <h2>畫面預覽</h2>
   <div style="display:flex; flex-direction:column; gap:12px;">
-    <img src="demo/messageImage_1778550539564.jpg" alt="抓取中" style="border-radius:8px; border:1px solid #333; max-width:100%;">
-    <img src="demo/messageImage_1778550549208.jpg" alt="用量顯示" style="border-radius:8px; border:1px solid #333; max-width:100%;">
+    <img src="demo/claude_monitor_demo-0.png" alt="抓取中" style="border-radius:8px; border:1px solid #333; max-width:100%;">
+    <img src="demo/claude_monitor_demo-1.png" alt="用量顯示" style="border-radius:8px; border:1px solid #333; max-width:100%;">
   </div>
 
   <!-- Features -->
@@ -334,6 +334,11 @@
       <div class="icon">🖱️</div>
       <div class="title">拖曳 + 釘選</div>
       <p class="desc">預設已釘選（⊡ 綠色）。點一下解除釘選可拖曳移動，再點一下重新釘選鎖定位置</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">📷</div>
+      <div class="title">截圖（已註解）</div>
+      <p class="desc"><code>Ctrl+S</code> 對 HUD 截圖，存成 <code>claude_monitor_demo.png</code>。需安裝 Pillow，取消對應註解即可啟用</p>
     </div>
   </div>
 
@@ -436,6 +441,34 @@ claude_monitor.vbs   # 雙擊啟動器（放桌面，無 cmd 視窗）</pre>
       <div class="flow-comment">每次重啟確保資料最新</div>
     </div>
   </div>
+
+  <!-- Screenshot -->
+  <h2>截圖功能（已註解）</h2>
+  <p>程式內建截圖功能，預設關閉。啟用步驟：</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-content">
+        <div class="title">安裝 Pillow</div>
+        <pre>pip install Pillow</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-content">
+        <div class="title">取消 <code>__init__</code> 中的註解</div>
+        <pre># self.root.bind("&lt;Control-s&gt;", lambda _: self._save_screenshot())</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num"></div>
+      <div class="step-content">
+        <div class="title">取消 <code>_save_screenshot()</code> 方法的所有註解</div>
+        <p>啟用後按 <code>Ctrl+S</code> 即可截圖，儲存為 <code>claude_monitor_demo.png</code>。</p>
+      </div>
+    </div>
+  </div>
+  <p>技術細節：使用 Windows GDI <code>PrintWindow</code>（<code>PW_RENDERFULLCONTENT=2</code>）直接從視窗 DC 抓取畫面，搭配 <code>DwmGetWindowAttribute</code> 取得實際邊界，再透過 <code>GetDIBits</code> 轉成 PIL Image 存檔。</p>
 
   <!-- FAQ -->
   <h2>常見問題</h2>

@@ -28,7 +28,8 @@ class ClaudeHUD:
         self.root.configure(bg='#121212')
         self.root.config(highlightbackground="#333333", highlightthickness=1)
         self.root.geometry("+30+1106")
-
+        # self.root.bind("<Control-s>", lambda _: self._save_screenshot())
+        
         # Outer frame: sections left, buttons top-right
         outer = tk.Frame(self.root, bg="#121212")
         outer.pack(fill="both", expand=True)
@@ -109,6 +110,43 @@ class ClaudeHUD:
         t.bind("<Button-1>", self.start_move)
         t.bind("<B1-Motion>", self.do_move)
         return t
+
+    # def _save_screenshot(self):
+    #     import ctypes
+    #     import ctypes.wintypes
+    #     from PIL import Image
+
+    #     hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+
+    #     # 取得視窗實際大小
+    #     rect = ctypes.wintypes.RECT()
+    #     ctypes.windll.dwmapi.DwmGetWindowAttribute(
+    #         hwnd, 9,  # DWMWA_EXTENDED_FRAME_BOUNDS
+    #         ctypes.byref(rect), ctypes.sizeof(rect)
+    #     )
+    #     w = rect.right - rect.left
+    #     h = rect.bottom - rect.top
+
+    #     # 從視窗 DC 直接抓
+    #     wdc     = ctypes.windll.user32.GetWindowDC(hwnd)
+    #     dc      = ctypes.windll.gdi32.CreateCompatibleDC(wdc)
+    #     bmp     = ctypes.windll.gdi32.CreateCompatibleBitmap(wdc, w, h)
+    #     ctypes.windll.gdi32.SelectObject(dc, bmp)
+    #     ctypes.windll.user32.PrintWindow(hwnd, dc, 2)  # PW_RENDERFULLCONTENT=2
+
+    #     # 把 HBITMAP 轉成 PIL Image
+    #     bmp_info = (ctypes.c_int * 4)(40, w, -h, 1 | (32 << 16))
+    #     buf = (ctypes.c_char * (w * h * 4))()
+    #     ctypes.windll.gdi32.GetDIBits(dc, bmp, 0, h, buf, bmp_info, 0)
+    #     img = Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1)
+
+    #     # 清理
+    #     ctypes.windll.gdi32.DeleteObject(bmp)
+    #     ctypes.windll.gdi32.DeleteDC(dc)
+    #     ctypes.windll.user32.ReleaseDC(hwnd, wdc)
+
+    #     img.save("claude_monitor_demo.png")
+    #     print("截圖已儲存")
 
     def create_menu(self):
         self.menu = tk.Menu(self.root, tearoff=0)

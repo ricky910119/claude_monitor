@@ -6,9 +6,9 @@
 
 ## 畫面預覽
 
-![抓取中](demo/messageImage_1778550539564.jpg)
+![抓取中](demo/claude_monitor_demo-0.png)
 
-![用量顯示](demo/messageImage_1778550549208.jpg)
+![用量顯示](demo/claude_monitor_demo-1.png)
 
 ---
 
@@ -28,6 +28,7 @@
 - **無邊框 + 圓角**：透過 Windows DWM API 實現圓角
 - **透明度**：75% 不透明
 - **無 cmd 視窗**：透過 `.vbs` 啟動，背景執行無視窗
+- **截圖**（已註解）：`Ctrl+S` 對 HUD 截圖，存成 `claude_monitor_demo.png`。需安裝 `Pillow`，取消 `__init__` 與 `_save_screenshot()` 的註解即可啟用
 
 ---
 
@@ -176,3 +177,25 @@ Claude Code 輸出的重置時間格式不固定（`6:40pm`、`May 12, 3am`、`J
 | 起始位置 | `self.root.geometry("+30+1106")` | 螢幕左上角偏移 |
 | 預設釘選 | `self.pinned = True` | True = 啟動時鎖定，False = 啟動時可拖曳 |
 | 時區 | `TAIPEI_TZ` | 預設 Asia/Taipei (UTC+8) |
+
+---
+
+## 截圖功能（已註解）
+
+程式內建截圖功能，預設為關閉狀態。啟用方式：
+
+1. 安裝 Pillow：
+```
+pip install Pillow
+```
+
+2. 取消 `__init__` 中的這行註解：
+```python
+# self.root.bind("<Control-s>", lambda _: self._save_screenshot())
+```
+
+3. 取消 `_save_screenshot()` 方法的所有註解
+
+啟用後按 `Ctrl+S` 即可將 HUD 截圖存成 `claude_monitor_demo.png`（儲存於執行目錄）。
+
+技術說明：使用 Windows GDI `PrintWindow`（`PW_RENDERFULLCONTENT=2`）直接從視窗 DC 抓取畫面，搭配 `DwmGetWindowAttribute` 取得含陰影的實際邊界，再透過 `GetDIBits` 轉成 PIL Image 存檔。
