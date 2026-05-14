@@ -28,6 +28,8 @@
 - **無邊框 + 圓角**：透過 Windows DWM API 實現圓角
 - **透明度**：75% 不透明
 - **無 cmd 視窗**：透過 `.vbs` 啟動，背景執行無視窗
+- **跑馬燈動畫**：抓取中時顯示橫跨整條 HUD 的跑馬燈進度條，字元數自動對應視窗寬度
+- **填充動畫**：資料抓回後進度條從 0% 慢慢填到實際值（800ms、12 步）
 - **截圖**（已註解）：`Ctrl+S` 對 HUD 截圖，存成 `claude_monitor_demo.png`。需安裝 `Pillow`，取消 `__init__` 與 `_save_screenshot()` 的註解即可啟用
 
 ---
@@ -170,6 +172,8 @@ Claude Code 輸出的重置時間格式不固定（`6:40pm`、`May 12, 3am`、`J
 | 設定 | 位置 | 說明 |
 |------|------|------|
 | 刷新間隔 | `refresh_loop()` 的 `time.sleep(300)` | 單位秒，預設 300（5 分鐘） |
+| 跑馬燈速度 | `_start_marquee()` 的 `root.after(80, ...)` | 單位毫秒，數字越大越慢 |
+| 填充動畫時間 | `_animate_bars()` 的 `duration=800, steps=12` | duration 單位毫秒，steps 對應進度條格數 |
 | 置頂檢查間隔 | `_keep_on_top()` 的 `root.after(1000, ...)` | 單位毫秒，預設 1000 |
 | 黃色閾值 | `bar_tag = "err" if pct >= 90 else "warn" if pct >= 70` | 目前 70%，影響進度條與文字 |
 | 紅色閾值 | 同上 | 目前 90%，影響進度條與文字 |

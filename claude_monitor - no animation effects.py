@@ -79,8 +79,6 @@ class ClaudeHUD:
 
         self.sections_frame.pack()
 
-        self.marquee_text = self._make_text(self.content_area, height=2, width=40, padx=15, pady=6)
-
         self.root.bind("<Button-1>", self.start_move)
         self.root.bind("<B1-Motion>", self.do_move)
         self.root.bind("<Button-3>", self.show_menu)
@@ -91,8 +89,6 @@ class ClaudeHUD:
         self.buf_lock = threading.Lock()
         self.pinned = True
         self.x = self.y = 0
-        self._marquee_running = False
-        self._size_locked = False
 
         self.root.after(100, self._set_rounded_corners)
         self.root.after(1000, self._keep_on_top)
@@ -204,44 +200,6 @@ class ClaudeHUD:
                 self._write_widget(t, [(text, tag)])
         self.root.after(0, _do)
 
-    def _start_marquee(self):
-        self._marquee_running = True
-
-        def _show():
-            self.sections_frame.pack_forget()
-            self.marquee_text.pack(fill="x")
-            self.root.update_idletasks()
-
-            import tkinter.font as tkfont
-            char_w = tkfont.Font(family="Consolas", size=9).measure("░")
-            bar_w = max(12, (self.marquee_text.winfo_width() - 30) // char_w)
-
-            def _step(pos):
-                if not self._marquee_running:
-                    return
-                hs = {(pos + k) % bar_w for k in range(3)}
-                bar = ''.join('█' if j in hs else '░' for j in range(bar_w))
-                def _do(b=bar):
-                    self._write_widget(self.marquee_text, [("抓取中...\n", "bar"), (b + "\n", "bar")])
-                self.root.after(0, _do)
-                self.root.after(20, lambda p=pos+1: _step(p))
-
-            _step(0)
-
-        self.root.after(0, _show)
-
-    def _stop_marquee(self):
-        self._marquee_running = False
-        def _do():
-            self.marquee_text.pack_forget()
-            self.sections_frame.pack()
-        self.root.after(0, _do)
-
-    def _lock_size(self):
-        w = self.root.winfo_width()
-        h = self.root.winfo_height()
-        self.root.geometry(f"{w}x{h}+{self.root.winfo_x()}+{self.root.winfo_y()}")
-
     def _write_data(self, col_segs_list):
         def _do():
             for i, segs in enumerate(col_segs_list):
@@ -250,47 +208,7 @@ class ClaudeHUD:
                     w = max(len(t) for t, _ in segs if t.strip())
                     h = len([t for t, _ in segs if t.endswith("\n")])
                     self.col_texts[i].config(width=max(w, 20), height=max(h, 1))
-            if not self._size_locked:
-                self._size_locked = True
-                self.root.after(50, self._lock_size)
         self.root.after(0, _do)
-
-    def _animate_bars(self, col_segs_list, duration=800, steps=12):
-        targets = []
-        for segs in col_segs_list:
-            if len(segs) == 2 and segs[1][1] != "dim":
-                m = re.search(r'(\d+)%', segs[1][0])
-                targets.append(int(m.group(1)) if m else None)
-            else:
-                targets.append(None)
-
-        interval = max(1, duration // steps)
-
-        def _step(frame):
-            if frame == 0:
-                for i, segs in enumerate(col_segs_list):
-                    if segs:
-                        w = max(len(t) for t, _ in segs if t.strip())
-                        h = len([t for t, _ in segs if t.endswith("\n")])
-                        self.col_texts[i].config(width=max(w, 20), height=max(h, 1))
-
-            for i, (segs, target_pct) in enumerate(zip(col_segs_list, targets)):
-                if target_pct is not None:
-                    current_pct = round(target_pct * frame / steps)
-                    bar_tag = segs[1][1]
-                    self._write_widget(self.col_texts[i], [
-                        segs[0],
-                        (f"{self.format_bar(current_pct)} {current_pct}%\n", bar_tag)
-                    ])
-                else:
-                    self._write_widget(self.col_texts[i], segs)
-
-            if frame < steps:
-                self.root.after(interval, lambda f=frame+1: _step(f))
-            else:
-                self._write_data(col_segs_list)
-
-        self.root.after(0, lambda: _step(0))
 
     def parse_usage(self, text):
         keys = list(SECTION_LABELS.keys())
@@ -391,7 +309,7 @@ class ClaudeHUD:
         return self.start_pty()
 
     def update_usage(self):
-        self._start_marquee()
+        self._set_status("抓取中...", "bar")
         try:
             if not self.ensure_pty():
                 raise Exception("PTY 啟動失敗")
@@ -425,12 +343,10 @@ class ClaudeHUD:
                     segs = [(first, bar_tag), (f"{self.format_bar(pct)} {pct}%\n", bar_tag)]
                 col_segs_list.append(segs)
 
-            self._stop_marquee()
-            self._animate_bars(col_segs_list)
+            self._write_data(col_segs_list)
 
         except Exception as e:
             self._close_pty()
-            self._stop_marquee()
             self._set_status(f"抓取失敗: {e}", "err")
 
     def refresh_loop(self):

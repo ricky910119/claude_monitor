@@ -336,6 +336,16 @@
       <p class="desc">預設已釘選（⊡ 綠色）。點一下解除釘選可拖曳移動，再點一下重新釘選鎖定位置</p>
     </div>
     <div class="feature-card">
+      <div class="icon">⣿</div>
+      <div class="title">跑馬燈動畫</div>
+      <p class="desc">抓取中時顯示橫跨整條 HUD 的跑馬燈進度條，字元數自動對應視窗寬度，速度可調</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">▶</div>
+      <div class="title">填充動畫</div>
+      <p class="desc">資料抓回後進度條從 0% 慢慢填到實際值，800ms 內完成，視覺回饋更直覺</p>
+    </div>
+    <div class="feature-card">
       <div class="icon">📷</div>
       <div class="title">截圖（已註解）</div>
       <p class="desc"><code>Ctrl+S</code> 對 HUD 截圖，存成 <code>claude_monitor_demo.png</code>。需安裝 Pillow，取消對應註解即可啟用</p>
@@ -500,6 +510,8 @@ claude_monitor.vbs   # 雙擊啟動器（放桌面，無 cmd 視窗）</pre>
   <table>
     <tr><th>設定</th><th>位置</th><th>說明</th></tr>
     <tr><td>刷新間隔</td><td><code>refresh_loop()</code> 的 <code>time.sleep(300)</code></td><td>單位秒，預設 300（5 分鐘）</td></tr>
+    <tr><td>跑馬燈速度</td><td><code>_start_marquee()</code> 的 <code>root.after(80, ...)</code></td><td>單位毫秒，數字越大越慢</td></tr>
+    <tr><td>填充動畫時間</td><td><code>_animate_bars(duration=800, steps=12)</code></td><td>duration 單位毫秒，steps 對應進度條格數</td></tr>
     <tr><td>置頂檢查間隔</td><td><code>_keep_on_top()</code> 的 <code>root.after(1000, ...)</code></td><td>單位毫秒，預設 1000</td></tr>
     <tr><td>黃色閾值</td><td><code>pct >= 70</code></td><td>預設 70%，影響進度條與文字顏色</td></tr>
     <tr><td>紅色閾值</td><td><code>pct >= 90</code></td><td>預設 90%，影響進度條與文字顏色</td></tr>
