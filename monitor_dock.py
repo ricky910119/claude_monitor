@@ -1,9 +1,10 @@
-"""Fixed, non-activating HUD docking above DISPLAY2's taskbar."""
+"""Fixed, non-activating HUD overlay on DISPLAY2's bottom taskbar."""
 import ctypes
 from ctypes import wintypes
 
 
 def work_area():
+    """Keep the working area's horizontal bounds, but include the bottom taskbar."""
     class MonitorInfo(ctypes.Structure):
         _fields_ = [("size", wintypes.DWORD), ("monitor", wintypes.RECT),
                     ("work", wintypes.RECT), ("flags", wintypes.DWORD),
@@ -19,7 +20,7 @@ def work_area():
         info.size = ctypes.sizeof(info)
         if user32.GetMonitorInfoW(handle, ctypes.byref(info)):
             monitors.append((info.device, info.flags & 1,
-                             (info.work.left, info.work.top, info.work.right, info.work.bottom)))
+                             (info.work.left, info.work.top, info.work.right, info.monitor.bottom)))
         return True
     callback = callback_type(collect)
     user32.EnumDisplayMonitors(None, None, callback, 0)
