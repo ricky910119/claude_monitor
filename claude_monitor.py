@@ -463,6 +463,8 @@ class ClaudeHUD:
 
     def run(self):
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        from monitor_dock import install_dock
+        install_dock(self)
         self.root.mainloop()
 
 
