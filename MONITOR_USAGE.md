@@ -2,16 +2,34 @@
 
 兩個來源在同一行顯示，不需要切頁，也不顯示用量條。深灰底搭配暖色 Claude／灰綠色 Codex 標籤。
 提亮的莫蘭迪色系集中在 `claude_monitor.py` 頂端的 `COLORS`。每項百分比獨立換色：≤40% 鼠尾草綠 `#A8C2B5`、>40% 且 ≤80% 灰褐金 `#DDBE8F`、>80% 煙粉紅 `#D99393`。額度名稱（本次、每週、5h 等）採柔米淺黃 `#E8DFCF`；抓取失敗的舊資料統一淡化為 `#8C95A6`，成功更新後恢復門檻色。
-每五分鐘各自刷新，手動更新不會重複啟動同一來源。
+每三分鐘各自刷新，手動更新不會重複啟動同一來源。
 百分比一律代表「已使用」。更新失敗時保留上次成功資料並標示舊資料與更新時間。
 
 ## 啟動
 
-目前本機環境為上層目錄的 `.venv`，直接雙擊 `claude_monitor.vbs`。
+目前使用專用環境 `.venv_claude_monitor`。唯一的 `claude_monitor.vbs` 同時提供每日監督、立即啟動與停止三種模式：
+
+- 直接雙擊或傳入 `daily`：常駐監督，07:00–19:00 確保 HUD 執行，其餘時間停止 HUD。
+- 傳入 `start`：立即啟動一次 HUD。
+- 傳入 `stop`：停止 HUD，並通知正在執行的每日 supervisor 結束。
+
+工作排程器使用：
+
+```text
+wscript.exe //B //Nologo "C:\Users\ricky9101\Test Code\claude_monitor\claude_monitor.vbs" daily
+```
+
+手動模式可在命令提示字元使用：
+
+```text
+wscript.exe "C:\Users\ricky9101\Test Code\claude_monitor\claude_monitor.vbs" start
+wscript.exe "C:\Users\ricky9101\Test Code\claude_monitor\claude_monitor.vbs" stop
+```
+
 安裝依賴時使用同一環境：
 
 ```powershell
-& 'C:\Users\ricky9101\Test Code\.venv\Scripts\python.exe' -m pip install -r 'C:\Users\ricky9101\Test Code\claude_monitor\requirements.txt'
+& 'C:\Users\ricky9101\Test Code\.venv_claude_monitor\Scripts\python.exe' -m pip install -r 'C:\Users\ricky9101\Test Code\claude_monitor\requirements.txt'
 ```
 
 修改程式後須關閉舊版監控視窗，再重新啟動 VBS；已執行的 Python 不會自動載入修改。
@@ -40,7 +58,7 @@ Claude 需支援 `--safe-mode`、`--strict-mcp-config` 等參數。Codex 需支�
 
 ```powershell
 Set-Location 'C:\Users\ricky9101\Test Code\claude_monitor'
-& '..\.venv\Scripts\python.exe' claude_monitor.py --diagnose all
+& '..\.venv_claude_monitor\Scripts\python.exe' claude_monitor.py --diagnose all
 ```
 
 可以改成 `--diagnose claude` 或 `--diagnose codex`。診斷會實際查詢額度，輸出資料或錯誤，完成後關閉自己建立的 CLI。
@@ -49,7 +67,7 @@ GUI 的 `monitor_diagnostics.log` 僅記錄成功視窗數與錯誤分類，不�
 離線解析檢查（不連網、不啟動 CLI）：
 
 ```powershell
-& '..\.venv\Scripts\python.exe' -m unittest -v test_usage_sources
+& '..\.venv_claude_monitor\Scripts\python.exe' -m unittest -v test_usage_sources
 ```
 
 Codex 額度介面：[官方 App Server 文件](https://learn.chatgpt.com/docs/app-server)。

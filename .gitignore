@@ -1,3 +1,4 @@
 __pycache__/
 *.py[cod]
 monitor_diagnostics.log*
+.claude_monitor.stop
