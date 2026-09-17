@@ -1,5 +1,7 @@
 # Claude Monitor
 
+> **目前主程式已改為 Claude + Codex 同時顯示。** 請使用 [新版啟動與診斷說明](MONITOR_USAGE.md)。以下截圖與單列操作說明保留作舊版參考，不代表新版介面。
+
 桌面懸浮 HUD，即時顯示 Claude Code 的用量百分比（本次 session、本週、加購額度）。
 
 ---
