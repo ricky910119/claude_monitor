@@ -1,207 +1,126 @@
 # Claude Monitor
 
-> **目前主程式已改為 Claude + Codex 同時顯示。** 請使用 [新版啟動與診斷說明](MONITOR_USAGE.md)。以下截圖與單列操作說明保留作舊版參考，不代表新版介面。
+Windows 桌面用量 HUD，在同一行顯示 **Claude Code** 與 **Codex** 的訂閱額度。程式只讀取兩個 CLI 已登入帳號所提供的用量資訊，不會送出模型提示。
 
-桌面懸浮 HUD，即時顯示 Claude Code 的用量百分比（本次 session、本週、加購額度）。
+介面採單列、無進度條設計；百分比一律代表「已使用」。重設時間、最後更新時間與錯誤原因放在滑鼠提示中，避免佔用桌面空間。
 
----
+完整的啟動、登入與診斷說明請見 [MONITOR_USAGE.md](MONITOR_USAGE.md)。
 
-## 畫面預覽
+## 主要功能
 
-![抓取中](demo/claude_monitor_demo-0.png)
-
-![用量顯示](demo/claude_monitor_demo-1.png)
-
----
-
-## 功能
-
-- **即時用量**：顯示 Current session / Weekly / Extra usage 三欄並排百分比進度條
-- **顏色警示**：進度條與文字（label、重置時間）同步變色。綠色 < 70%，黃色 ≥ 70%，紅色 ≥ 90%
-- **重置時間**：自動轉換為 Asia/Taipei 時區
-  - Current session：顯示「in X hr XX min」（倒數）
-  - Weekly：顯示「Tue 3:00am」（星期幾 + 時間）
-  - Extra：顯示月份日期
-- **自動刷新**：每 5 分鐘自動重新抓取一次
-- **手動刷新**：右上角 ↺ 按鈕或右鍵選單
-- **釘選**：右上角 ⊡ 按鈕，預設已釘選（綠色，鎖定位置），點一下解除（可拖曳），再點一下重新釘選
-- **拖曳移動**：未釘選時，拖曳視窗任意區域皆可移動
-- **強制置頂**：每秒重新確認視窗在最上層，工具列蓋過去後自動恢復
-- **無邊框 + 圓角**：透過 Windows DWM API 實現圓角
-- **透明度**：75% 不透明
-- **無 cmd 視窗**：透過 `.vbs` 啟動，背景執行無視窗
-- **跑馬燈動畫**：抓取中時顯示橫跨整條 HUD 的跑馬燈進度條，字元數自動對應視窗寬度
-- **填充動畫**：資料抓回後進度條從 0% 慢慢填到實際值（800ms、12 步）
-- **截圖**（已註解）：`Ctrl+S` 對 HUD 截圖，存成 `claude_monitor_demo.png`。需安裝 `Pillow`，取消 `__init__` 與 `_save_screenshot()` 的註解即可啟用
-
----
-
-## 檔案結構
-
-```
-claude_monitor.py    # 主程式
-claude_monitor.vbs   # 雙擊啟動器（放在桌面）
-```
-
----
+- Claude 與 Codex 同時顯示，兩個來源各自抓取，單一來源失敗不會阻塞另一個。
+- 每 3 分鐘自動刷新；手動刷新時不會重複啟動仍在執行的同來源工作。
+- 更新失敗時保留上次成功資料、淡化顯示，並在提示框提供原因。
+- 用量顏色依每個百分比獨立判斷：
+  - `≤ 40%`：鼠尾草綠 `#A8C2B5`
+  - `> 40%` 且 `≤ 80%`：灰褐金 `#DDBE8F`
+  - `> 80%`：煙粉紅 `#D99393`
+- 預設固定在第 2 螢幕工作區左下角；找不到第 2 螢幕時退回主螢幕。
+- 無邊框、圓角、保持置頂，支援解除固定後拖曳及右鍵復位。
+- 單一 `claude_monitor.vbs` 提供每日監督、立即啟動與停止模式。
+- 診斷紀錄會輪替，僅保留成功視窗數與錯誤分類，不記錄完整終端輸出、帳號或憑證。
 
 ## 環境需求
 
-- **Windows 10/11**
-- **Python 3.x**（需安裝 `pythonw.exe`）
-- **套件：winpty**
+- Windows 10 或 Windows 11
+- 已登入的 Claude Code CLI
+- 已以 ChatGPT 帳號登入的 Codex CLI
+- 專用 Python 環境：放在專案上一層的 `.venv_claude_monitor`
+- Python 套件：`pywinpty`、`pyte`
 
-```
-pip install winpty
-```
+安裝依賴：
 
-- **Claude Code CLI** 已安裝並登入（`claude.exe` 存在於 npm 全域路徑）
-
----
-
-## 安裝與設定
-
-### 1. 確認 Claude Code 路徑
-
-打開 `claude_monitor.py`，確認路徑是否正確：
-
-```python
-CLAUDE_PATH = r'C:\Users\你的使用者名稱\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe'
+```powershell
+$Repo = 'C:\path\to\claude_monitor'
+$Python = Join-Path (Split-Path $Repo -Parent) '.venv_claude_monitor\Scripts\python.exe'
+& $Python -m pip install -r (Join-Path $Repo 'requirements.txt')
 ```
 
-確認方法：
-```
-where claude
-```
+如 CLI 不在預設位置，可設定：
 
-### 2. 安裝 winpty
+- `CLAUDE_MONITOR_CLAUDE_PATH`
+- `CLAUDE_MONITOR_CODEX_PATH`
 
-```
-pip install winpty
-```
+## 啟動與停止
 
-### 3. 啟動
+直接雙擊 `claude_monitor.vbs` 等同 `daily` 模式：
 
-**方法 A（推薦）：雙擊 `claude_monitor.vbs`**
-- 無 cmd 視窗，背景靜默啟動
+- `daily`：常駐監督，在每天 07:00–19:00 確保 HUD 執行，其餘時間停止 HUD。
+- `start`：立即啟動一次 HUD。
+- `stop`：停止 HUD，並通知正在執行的每日 supervisor 結束。
 
-**方法 B：直接執行**
-```
-python claude_monitor.py
+```text
+wscript.exe "C:\path\to\claude_monitor\claude_monitor.vbs" start
+wscript.exe "C:\path\to\claude_monitor\claude_monitor.vbs" stop
 ```
 
----
+排程在早上 07:00 啟動時，工作排程器的動作可設為：
 
-## 操作說明
+```text
+wscript.exe //B //Nologo "C:\path\to\claude_monitor\claude_monitor.vbs" daily
+```
+
+HUD 是互動式桌面程式。排程應使用「僅限使用者登入時執行」；已登入但鎖定的工作階段仍可啟動，完全登出時則無法在使用者桌面顯示。
+
+## 操作方式
 
 | 操作 | 功能 |
-|------|------|
-| 拖曳視窗 | 移動 HUD 位置 |
-| 點擊 ⊡ | 釘選 / 解除釘選（綠色 = 已釘選） |
-| 點擊 ↺ | 手動刷新 |
-| 點擊 ✕ | 關閉（同時結束背景 claude.exe） |
-| 右鍵 | 選單（手動刷新 / 退出） |
+|---|---|
+| 滑鼠停在 Claude 或 Codex 區域 | 查看最後更新、重設時間及錯誤原因 |
+| 點擊「固定」 | 解除固定，允許拖曳；再次點擊可重新固定 |
+| 點擊 `↻` | 更新 Claude 與 Codex |
+| 點擊 `×` | 關閉目前 HUD |
+| 右鍵 | 更新、回到第 2 螢幕左下角或退出 |
 
----
+## 資料來源
 
-## 技術原理
+### Claude
 
-### 為什麼用 PTY？
+程式透過 ConPTY 在隔離模式啟動 Claude Code，送出 `/usage` 後解析 CLI 顯示的本次、每週、模型額度與用量點數狀態。它不會自動處理登入、信任確認或送出一般模型提示。
 
-Claude Code 的 `/usage` 指令是 slash command，只能在 TTY（終端機）環境下使用，透過 pipe 或 subprocess 直接呼叫會被忽略。
+Claude 的終端畫面會分多次重繪，因此程式會等待額度畫面完整且內容穩定後才採用結果，避免讀到過渡中的錯誤百分比。
 
-解法：使用 `winpty` 建立一個假終端機（Pseudo Terminal），讓 `claude.exe` 以為自己在真實終端機裡運行。
+### Codex
 
-### 抓取流程
+程式啟動 Codex 本機 stdio `app-server`，呼叫 `account/rateLimits/read` 取得額度視窗。`usedPercent` 會直接視為已使用比例，不做反向換算。
 
+缺少額度不會被當成 `0%`；畫面會顯示未提供、未啟用或明確錯誤。
+
+## 診斷
+
+在 PowerShell 執行：
+
+```powershell
+Set-Location 'C:\path\to\claude_monitor'
+& '..\.venv_claude_monitor\Scripts\python.exe' claude_monitor.py --diagnose all
 ```
-1. winpty.PtyProcess.spawn(claude.exe)     # 啟動 claude.exe
-2. 等待 ">\xa0" 出現                        # 確認 prompt 就緒（約 6s）
-3. 寫入 "/usage\r"                          # 送出指令
-4. 等待 "spent" 出現在輸出中               # 確認資料完整（Extra usage 最後出現）
-5. 送 ESC (\x1b)                           # 關閉 usage 畫面
-6. 解析輸出，更新 UI                        # regex 擷取百分比、重置時間
-7. 關閉 PTY，等待下次刷新                   # 每次都重啟以確保資料為最新
+
+也可將 `all` 改成 `claude` 或 `codex`。診斷會實際查詢額度，完成後關閉由它建立的 CLI 程序。
+
+GUI 記錄位於 `monitor_diagnostics.log`，上限 100 KB，另保留一份輪替檔。
+
+## 專案檔案
+
+```text
+claude_monitor.py      HUD、刷新排程、顯示與診斷入口
+usage_sources.py       Claude／Codex 額度抓取與解析
+monitor_dock.py        Windows 多螢幕工作區定位與置頂監督
+claude_monitor.vbs     daily／start／stop 靜默啟動器
+requirements.txt       Python 依賴
+MONITOR_USAGE.md       詳細操作與疑難排解
+test_usage_sources.py  離線解析檢查
 ```
-
-### 為什麼每次都重啟 PTY？
-
-同一個 `claude.exe` process 在長時間運行後，`/usage` 回傳的資料會是舊的快取值，不會自動更新。重啟 PTY 可確保每次都拿到最新資料。
-
-### Prompt 偵測
-
-`>\xa0` = U+003E（`>`）+ U+00A0（Non-Breaking Space），這是 Claude Code 的 prompt 字元組合。
-
-### 輸出清理
-
-winpty 回傳的原始輸出包含 ANSI 控制碼、`\r` carriage return、以及部分 UTF-16 編碼造成的 null bytes（`\x00`）。`_strip()` 依序清除這三類，才能讓 regex 正確解析文字內容。
-
-### 重置時間解析
-
-Claude Code 輸出的重置時間格式不固定（`6:40pm`、`May 12, 3am`、`Jun 1` 等），且 winpty 的 terminal rendering 有時會吃掉字元（如 `Resets` → `Reses`）。`_format_resets()` 直接比對時間格式本身而非依賴前綴文字，統一轉換為 Asia/Taipei 時區顯示。
-
-### Section 邊界解析
-
-`parse_usage()` 將每個 section 的搜尋範圍限制在下一個 section 開始之前，避免固定長度 chunk 造成跨 section 誤抓。
-
----
 
 ## 常見問題
 
-**Q：抓取一直失敗**
-- 確認 `CLAUDE_PATH` 路徑正確
-- 確認已登入 Claude Code（在 cmd 直接執行 `claude` 看能否正常啟動）
-- 確認已安裝 `winpty`
+### Claude 或 Codex 顯示 `!`
 
-**Q：關閉後後台還有 claude.exe**
-- 正常關閉（點 ✕ 或右鍵退出）會自動清除
-- 若強制關閉 Python，需手動在工作管理員結束 `claude.exe`
+將滑鼠停在對應來源查看原因，再執行該來源的診斷模式。常見原因是 CLI 尚未登入、登入已過期、CLI 版本不支援所需介面，或訂閱帳號沒有提供對應額度。
 
-**Q：數據沒有更新**
-- 這是正常現象，Claude Code 本身的 API 資料有延遲
-- 每次刷新都會重新啟動 `claude.exe` 以確保拿到最新快取
+### 更新失敗後數字沒有消失
 
-**Q：視窗被工具列蓋住**
-- 正常情況下每秒自動恢復置頂，1 秒內會回來
+這是預期行為。HUD 會保留最後一次成功資料並淡化顯示，避免短暫錯誤把可用資訊清空；提示框會標示資料時間與失敗原因。
 
-**Q：釘選後拖曳欄位，label 文字消失**
-- 已修復。原因是 Text widget 的 scan 滾動機制在釘選時仍會捲動視圖，造成第一行被捲出畫面。
+### 修改程式後畫面仍是舊版
 
----
-
-## 自訂設定
-
-| 設定 | 位置 | 說明 |
-|------|------|------|
-| 刷新間隔 | `refresh_loop()` 的 `time.sleep(300)` | 單位秒，預設 300（5 分鐘） |
-| 跑馬燈速度 | `_start_marquee()` 的 `root.after(80, ...)` | 單位毫秒，數字越大越慢 |
-| 填充動畫時間 | `_animate_bars()` 的 `duration=800, steps=12` | duration 單位毫秒，steps 對應進度條格數 |
-| 置頂檢查間隔 | `_keep_on_top()` 的 `root.after(1000, ...)` | 單位毫秒，預設 1000 |
-| 黃色閾值 | `bar_tag = "err" if pct >= 90 else "warn" if pct >= 70` | 目前 70%，影響進度條與文字 |
-| 紅色閾值 | 同上 | 目前 90%，影響進度條與文字 |
-| 透明度 | `self.root.attributes("-alpha", 0.75)` | 0.0~1.0 |
-| 起始位置 | `self.root.geometry("+30+1106")` | 螢幕左上角偏移 |
-| 預設釘選 | `self.pinned = True` | True = 啟動時鎖定，False = 啟動時可拖曳 |
-| 時區 | `TAIPEI_TZ` | 預設 Asia/Taipei (UTC+8) |
-
----
-
-## 截圖功能（已註解）
-
-程式內建截圖功能，預設為關閉狀態。啟用方式：
-
-1. 安裝 Pillow：
-```
-pip install Pillow
-```
-
-2. 取消 `__init__` 中的這行註解：
-```python
-# self.root.bind("<Control-s>", lambda _: self._save_screenshot())
-```
-
-3. 取消 `_save_screenshot()` 方法的所有註解
-
-啟用後按 `Ctrl+S` 即可將 HUD 截圖存成 `claude_monitor_demo.png`（儲存於執行目錄）。
-
-技術說明：使用 Windows GDI `PrintWindow`（`PW_RENDERFULLCONTENT=2`）直接從視窗 DC 抓取畫面，搭配 `DwmGetWindowAttribute` 取得含陰影的實際邊界，再透過 `GetDIBits` 轉成 PIL Image 存檔。
+已執行的 Python 不會自動載入檔案變更。請先使用 `stop` 停止舊程序，再使用 `start` 或 `daily` 重新啟動。

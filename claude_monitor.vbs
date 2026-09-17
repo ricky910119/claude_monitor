@@ -1,18 +1,21 @@
 Option Explicit
 
-Const BASE_DIR = "C:\Users\ricky9101\Test Code\claude_monitor"
-Const PYTHONW_PATH = "C:\Users\ricky9101\Test Code\.venv_claude_monitor\Scripts\pythonw.exe"
-Const MONITOR_SCRIPT = "C:\Users\ricky9101\Test Code\claude_monitor\claude_monitor.py"
-Const MONITOR_MARKER = "\claude_monitor\claude_monitor.py"
-Const SCRIPT_MARKER = "\claude_monitor\claude_monitor.vbs"
-Const STOP_FLAG = "C:\Users\ricky9101\Test Code\claude_monitor\.claude_monitor.stop"
 Const CHECK_INTERVAL_MS = 30000
 
 Dim shell, fso, wmi, mode
+Dim baseDir, pythonwPath, monitorScript, monitorMarker, scriptMarker, stopFlag
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set wmi = GetObject("winmgmts:\\.\root\cimv2")
-shell.CurrentDirectory = BASE_DIR
+
+baseDir = fso.GetParentFolderName(WScript.ScriptFullName)
+pythonwPath = fso.BuildPath(fso.GetParentFolderName(baseDir), _
+    ".venv_claude_monitor\Scripts\pythonw.exe")
+monitorScript = fso.BuildPath(baseDir, "claude_monitor.py")
+monitorMarker = LCase(monitorScript)
+scriptMarker = LCase(WScript.ScriptFullName)
+stopFlag = fso.BuildPath(baseDir, ".claude_monitor.stop")
+shell.CurrentDirectory = baseDir
 
 mode = "daily"
 If WScript.Arguments.Count > 0 Then
@@ -40,7 +43,7 @@ Sub RunDaily()
 
     DeleteStopFlag
     Do
-        If fso.FileExists(STOP_FLAG) Then
+        If fso.FileExists(stopFlag) Then
             StopMonitor
             WScript.Quit 0
         End If
@@ -59,7 +62,7 @@ End Sub
 
 Sub LaunchMonitor()
     If MonitorIsRunning() Then Exit Sub
-    shell.Run """" & PYTHONW_PATH & """ """ & MONITOR_SCRIPT & """", 0, False
+    shell.Run """" & pythonwPath & """ """ & monitorScript & """", 0, False
 End Sub
 
 Function MonitorIsRunning()
@@ -71,7 +74,7 @@ Function MonitorIsRunning()
     For Each process In processes
         If Not IsNull(process.CommandLine) Then
             commandLine = LCase(CStr(process.CommandLine))
-            If InStr(commandLine, MONITOR_MARKER) > 0 Then
+            If InStr(commandLine, monitorMarker) > 0 Then
                 MonitorIsRunning = True
                 Exit Function
             End If
@@ -87,7 +90,7 @@ Sub StopMonitor()
     For Each process In processes
         If Not IsNull(process.CommandLine) Then
             commandLine = LCase(CStr(process.CommandLine))
-            If InStr(commandLine, MONITOR_MARKER) > 0 Then
+            If InStr(commandLine, monitorMarker) > 0 Then
                 process.Terminate
             End If
         End If
@@ -104,7 +107,7 @@ Function SupervisorInstanceCount()
     For Each process In processes
         If Not IsNull(process.CommandLine) Then
             commandLine = LCase(CStr(process.CommandLine))
-            If InStr(commandLine, SCRIPT_MARKER) > 0 Then
+            If InStr(commandLine, scriptMarker) > 0 Then
                 count = count + 1
             End If
         End If
@@ -114,13 +117,13 @@ End Function
 
 Sub WriteStopFlag()
     Dim flag
-    Set flag = fso.CreateTextFile(STOP_FLAG, True)
+    Set flag = fso.CreateTextFile(stopFlag, True)
     flag.WriteLine CStr(Now)
     flag.Close
 End Sub
 
 Sub DeleteStopFlag()
-    If fso.FileExists(STOP_FLAG) Then
-        fso.DeleteFile STOP_FLAG, True
+    If fso.FileExists(stopFlag) Then
+        fso.DeleteFile stopFlag, True
     End If
 End Sub

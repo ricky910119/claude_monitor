@@ -16,20 +16,22 @@
 工作排程器使用：
 
 ```text
-wscript.exe //B //Nologo "C:\Users\ricky9101\Test Code\claude_monitor\claude_monitor.vbs" daily
+wscript.exe //B //Nologo "C:\path\to\claude_monitor\claude_monitor.vbs" daily
 ```
 
 手動模式可在命令提示字元使用：
 
 ```text
-wscript.exe "C:\Users\ricky9101\Test Code\claude_monitor\claude_monitor.vbs" start
-wscript.exe "C:\Users\ricky9101\Test Code\claude_monitor\claude_monitor.vbs" stop
+wscript.exe "C:\path\to\claude_monitor\claude_monitor.vbs" start
+wscript.exe "C:\path\to\claude_monitor\claude_monitor.vbs" stop
 ```
 
 安裝依賴時使用同一環境：
 
 ```powershell
-& 'C:\Users\ricky9101\Test Code\.venv_claude_monitor\Scripts\python.exe' -m pip install -r 'C:\Users\ricky9101\Test Code\claude_monitor\requirements.txt'
+$Repo = 'C:\path\to\claude_monitor'
+$Python = Join-Path (Split-Path $Repo -Parent) '.venv_claude_monitor\Scripts\python.exe'
+& $Python -m pip install -r (Join-Path $Repo 'requirements.txt')
 ```
 
 修改程式後須關閉舊版監控視窗，再重新啟動 VBS；已執行的 Python 不會自動載入修改。
@@ -57,7 +59,7 @@ Claude 需支援 `--safe-mode`、`--strict-mcp-config` 等參數。Codex 需支�
 ## 診斷
 
 ```powershell
-Set-Location 'C:\Users\ricky9101\Test Code\claude_monitor'
+Set-Location 'C:\path\to\claude_monitor'
 & '..\.venv_claude_monitor\Scripts\python.exe' claude_monitor.py --diagnose all
 ```
 

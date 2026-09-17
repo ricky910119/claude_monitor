@@ -1,4 +1,11 @@
 __pycache__/
 *.py[cod]
-monitor_diagnostics.log*
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+credentials*.json
+secrets*.json
 .claude_monitor.stop
