@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import ctypes
 from pathlib import Path
 import queue
 import re
@@ -20,6 +21,10 @@ import winpty
 
 class UsageError(RuntimeError):
     pass
+
+
+class RetryableUsageError(UsageError):
+    """A transient collector failure that is safe to retry."""
 
 
 @dataclass
@@ -234,7 +239,46 @@ def fetch_claude(path, cwd, stop, timeout=55):
         process.stdout.close()
 
 
-def _fetch_claude_pty(path, cwd, stop, timeout=55):
+def _spawn_claude_pty(command, cwd, env):
+    """Spawn Claude without allowing Windows loader failures to open a dialog."""
+    previous_error_mode = None
+    if os.name == "nt":
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.SetErrorMode.argtypes = [ctypes.c_uint]
+        kernel32.SetErrorMode.restype = ctypes.c_uint
+        # Child processes inherit the parent's error mode. This turns loader
+        # failures such as 0xC0000142 into an exit code instead of a modal box.
+        flags = 0x0001 | 0x0002 | 0x8000  # FAILCRITICALERRORS | NOGPFAULTERRORBOX | NOOPENFILEERRORBOX
+        previous_error_mode = kernel32.SetErrorMode(flags)
+    try:
+        return winpty.PtyProcess.spawn(command, cwd=cwd, dimensions=(70, 160),
+                                       env=env, backend=winpty.enums.Backend.ConPTY)
+    finally:
+        if previous_error_mode is not None:
+            kernel32.SetErrorMode(previous_error_mode)
+
+
+def _claude_exit_error(text, exit_code):
+    """Preserve the real early-exit reason instead of reporting every exit as login failure."""
+    unsigned_code = None if exit_code is None else exit_code & 0xFFFFFFFF
+    if unsigned_code == 0xC0000142:
+        return RetryableUsageError(
+            "啟動失敗：Windows 無法初始化 Claude CLI（0xC0000142）")
+
+    low = text.lower()
+    if "unable to connect" in low or "connectionrefused" in low or "failed to connect" in low:
+        return RetryableUsageError("連線失敗：Claude CLI 無法連線至 Anthropic 服務")
+    if "option" in low and "argument missing" in low:
+        return UsageError("啟動失敗：Claude CLI 隔離參數格式不相容")
+
+    code = "unknown" if unsigned_code is None else f"0x{unsigned_code:08X}"
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    detail = " / ".join(lines[-3:])[:300]
+    suffix = f"；{detail}" if detail else ""
+    return RetryableUsageError(f"啟動失敗：Claude CLI 提前結束（{code}）{suffix}")
+
+
+def _fetch_claude_pty_once(path, cwd, stop, timeout):
     require_executable(path, "Claude")
     # Safe mode disables hooks/plugins/custom commands. Strict MCP config excludes
     # configured MCP services. A quota command must never become a model prompt.
@@ -245,8 +289,7 @@ def _fetch_claude_pty(path, cwd, stop, timeout=55):
         env = os.environ.copy()
         # pywinpty treats backend=0 as falsy, so also remove the env override.
         env.pop("PYWINPTY_BACKEND", None)
-        process = winpty.PtyProcess.spawn(command, cwd=cwd, dimensions=(70, 160),
-                                         env=env, backend=winpty.enums.Backend.ConPTY)
+        process = _spawn_claude_pty(command, cwd, env)
     except Exception as exc:
         raise UsageError(f"啟動失敗：Claude PTY ({type(exc).__name__})") from None
     screen = pyte.Screen(160, 70)
@@ -312,7 +355,11 @@ def _fetch_claude_pty(path, cwd, stop, timeout=55):
                         if claude_render_complete(text, candidate) and settled_for >= 1.5:
                             return candidate
             if finished.is_set():
-                raise UsageError("啟動失敗：Claude CLI 已結束，請先手動確認登入")
+                try:
+                    exit_code = process.exitstatus
+                except Exception:
+                    exit_code = None
+                raise _claude_exit_error(text, exit_code)
             stop.wait(0.1)
         if stop.is_set():
             raise UsageError("已取消")
@@ -329,6 +376,33 @@ def _fetch_claude_pty(path, cwd, stop, timeout=55):
         except Exception:
             pass
         thread.join(timeout=1)
+
+
+def _fetch_claude_pty(path, cwd, stop, timeout=55):
+    """Retry only transient Claude startup failures within the original deadline."""
+    deadline = time.monotonic() + timeout
+    retry_delays = (2, 5)
+    last_error = None
+    attempts = 0
+    for attempt in range(len(retry_delays) + 1):
+        attempts = attempt + 1
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            return _fetch_claude_pty_once(path, cwd, stop, remaining)
+        except RetryableUsageError as exc:
+            last_error = exc
+            if attempt >= len(retry_delays):
+                break
+            delay = min(retry_delays[attempt], max(0, deadline - time.monotonic()))
+            if delay <= 0:
+                break
+            if stop.wait(delay):
+                raise UsageError("已取消") from None
+    if last_error is not None:
+        raise UsageError(f"{last_error}（已重試 {attempts} 次）") from None
+    raise UsageError("逾時：Claude 背景抓取未完成")
 
 
 if __name__ == "__main__":

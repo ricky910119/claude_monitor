@@ -251,18 +251,28 @@ class ClaudeHUD:
     def refresh_all(self):
         if self.stop.is_set():
             return
-        for agent, path, fetch in (("Claude", CLAUDE_PATH, fetch_claude),
-                                    ("Codex", CODEX_PATH, fetch_codex)):
+        for delay, (agent, path, fetch) in enumerate(
+                (("Claude", CLAUDE_PATH, fetch_claude),
+                 ("Codex", CODEX_PATH, fetch_codex))):
             if self.busy[agent]:
                 continue
             self.busy[agent] = True
             self.status[agent].config(text="·", fg=COLORS["loading"])
             if agent not in self.last_success:
                 self._write(agent, [("讀取中…", COLORS["waiting"])])
-            worker = threading.Thread(target=self._fetch, args=(agent, path, fetch), daemon=True)
-            self.workers = [w for w in self.workers if w.is_alive()]
-            self.workers.append(worker)
-            worker.start()
+            # Starting two interactive CLIs at the same instant increases loader,
+            # ConPTY, and network pressure. Reserve both slots now, launch Codex
+            # five seconds after Claude, and keep same-provider overlap blocked.
+            self.root.after(delay * 5000, self._start_fetch, agent, path, fetch)
+
+    def _start_fetch(self, agent, path, fetch):
+        if self.stop.is_set():
+            self.busy[agent] = False
+            return
+        worker = threading.Thread(target=self._fetch, args=(agent, path, fetch), daemon=True)
+        self.workers = [w for w in self.workers if w.is_alive()]
+        self.workers.append(worker)
+        worker.start()
 
     def _fetch(self, agent, path, fetch):
         try:
