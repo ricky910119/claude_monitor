@@ -127,7 +127,7 @@ def require_executable(path, agent):
         raise UsageError(f"啟動失敗：找不到 {agent} 執行檔，請檢查路徑設定")
 
 
-def fetch_codex(path, cwd, stop, timeout=40):
+def _fetch_codex_once(path, cwd, stop, timeout):
     """Local stdio app-server: initialize + quota read only, no thread/turn/MCP startup."""
     require_executable(path, "Codex")
     try:
@@ -136,7 +136,7 @@ def fetch_codex(path, cwd, stop, timeout=40):
             stderr=subprocess.DEVNULL, text=True, encoding="utf-8",
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except OSError as exc:
-        raise UsageError(f"啟動失敗：Codex ({type(exc).__name__})") from None
+        raise RetryableUsageError(f"啟動失敗：Codex ({type(exc).__name__})") from None
     messages = queue.Queue()
 
     def reader():
@@ -164,7 +164,7 @@ def fetch_codex(path, cwd, stop, timeout=40):
             except queue.Empty:
                 continue
             if message is None:
-                raise UsageError("啟動失敗：Codex 額度介面提前結束")
+                raise RetryableUsageError("啟動失敗：Codex 額度介面提前結束")
             if message.get("id") != request_id:
                 continue
             if "error" in message:
@@ -176,7 +176,9 @@ def fetch_codex(path, cwd, stop, timeout=40):
                     raise UsageError("未提供訂閱額度：請以 ChatGPT 登入 Codex")
                 raise UsageError(f"抓取失敗：Codex 額度介面錯誤 {error.get('code', 'unknown')}")
             return message.get("result", {})
-        raise UsageError("已取消" if stop.is_set() else "逾時：Codex 額度介面未回覆")
+        if stop.is_set():
+            raise UsageError("已取消")
+        raise RetryableUsageError("逾時：Codex 額度介面未回覆")
 
     try:
         send({"id": 1, "method": "initialize", "params": {
@@ -198,8 +200,46 @@ def fetch_codex(path, cwd, stop, timeout=40):
         process.stdout.close()
 
 
-def fetch_claude(path, cwd, stop, timeout=55):
-    """Give the PTY a hidden console host even when the HUD runs under pythonw."""
+def fetch_codex(path, cwd, stop, timeout=30):
+    """Retry a fresh Codex app-server after a transient startup or response failure."""
+    attempts = 2
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            return _fetch_codex_once(path, cwd, stop, timeout)
+        except RetryableUsageError as exc:
+            last_error = exc
+            if attempt + 1 >= attempts:
+                break
+            if stop.wait(3):
+                raise UsageError("已取消") from None
+    raise UsageError(f"{last_error}（Codex 已重試 {attempts} 次）") from None
+
+
+def _terminate_process_tree(process):
+    """Bound cleanup of a stuck worker and every Claude process it owns."""
+    if process.poll() is not None:
+        return
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=5, creationflags=subprocess.CREATE_NO_WINDOW,
+                check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    if process.poll() is None:
+        process.kill()
+    try:
+        process.communicate(timeout=3)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
+
+
+def _run_claude_worker(path, cwd, stop, timeout):
+    """Run one independently killable worker attempt."""
     python = Path(sys.executable).with_name("python.exe")
     startup = subprocess.STARTUPINFO()
     startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -209,13 +249,13 @@ def fetch_claude(path, cwd, stop, timeout=55):
         cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL, text=True, encoding="utf-8",
         creationflags=subprocess.CREATE_NO_WINDOW, startupinfo=startup)
-    deadline = time.monotonic() + timeout + 10
+    deadline = time.monotonic() + timeout + 5
     try:
         while True:
             if stop.is_set():
                 raise UsageError("已取消")
             if time.monotonic() > deadline:
-                raise UsageError("逾時：Claude 背景抓取未完成")
+                raise RetryableUsageError("逾時：Claude 背景程序卡住，已強制回收")
             try:
                 output, _ = process.communicate(timeout=0.2)
                 break
@@ -224,19 +264,30 @@ def fetch_claude(path, cwd, stop, timeout=55):
         try:
             result = json.loads(output)
         except ValueError:
-            raise UsageError("啟動失敗：Claude 背景程序未提供結果") from None
+            raise RetryableUsageError("啟動失敗：Claude 背景程序未提供結果") from None
         if "error" in result:
-            raise UsageError(result["error"])
+            error_type = RetryableUsageError if result.get("retryable") else UsageError
+            raise error_type(result["error"])
         return [Quota(**row) for row in result["quotas"]]
     finally:
-        if process.poll() is None:
-            # The worker owns its PTY; allow its bounded collection to close it.
-            try:
-                process.communicate(timeout=max(1, deadline - time.monotonic()))
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.communicate()
+        _terminate_process_tree(process)
         process.stdout.close()
+
+
+def fetch_claude(path, cwd, stop, timeout=50):
+    """Retry a fully isolated worker after hangs as well as reported transient failures."""
+    attempts = 2
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            return _run_claude_worker(path, cwd, stop, timeout)
+        except RetryableUsageError as exc:
+            last_error = exc
+            if attempt + 1 >= attempts:
+                break
+            if stop.wait(3):
+                raise UsageError("已取消") from None
+    raise UsageError(f"{last_error}（背景程序已重試 {attempts} 次）") from None
 
 
 def _spawn_claude_pty(command, cwd, env):
@@ -364,12 +415,12 @@ def _fetch_claude_pty_once(path, cwd, stop, timeout):
         if stop.is_set():
             raise UsageError("已取消")
         if not sent:
-            raise UsageError("逾時：Claude 未進入輸入畫面，請先手動完成啟動畫面")
+            raise RetryableUsageError("逾時：Claude 未進入輸入畫面")
         if last_parse_error is not None:
             raise UsageError(f"解析失敗：Claude /usage 穩定後仍無法解析（{last_parse_error}）")
         if last_quotas:
-            raise UsageError("解析失敗：Claude 額度畫面不完整")
-        raise UsageError("逾時：Claude /usage 未提供可辨識的額度")
+            raise RetryableUsageError("解析失敗：Claude 額度畫面不完整")
+        raise RetryableUsageError("逾時：Claude /usage 未提供可辨識的額度")
     finally:
         try:
             process.close(force=True)
@@ -401,8 +452,8 @@ def _fetch_claude_pty(path, cwd, stop, timeout=55):
             if stop.wait(delay):
                 raise UsageError("已取消") from None
     if last_error is not None:
-        raise UsageError(f"{last_error}（已重試 {attempts} 次）") from None
-    raise UsageError("逾時：Claude 背景抓取未完成")
+        raise RetryableUsageError(f"{last_error}（PTY 已重試 {attempts} 次）") from None
+    raise RetryableUsageError("逾時：Claude 背景抓取未完成")
 
 
 if __name__ == "__main__":
@@ -412,4 +463,7 @@ if __name__ == "__main__":
             print(json.dumps({"quotas": [vars(q) for q in quotas]}, ensure_ascii=True))
         except Exception as exc:
             detail = str(exc) if isinstance(exc, UsageError) else type(exc).__name__
-            print(json.dumps({"error": detail}, ensure_ascii=True))
+            print(json.dumps({
+                "error": detail,
+                "retryable": isinstance(exc, RetryableUsageError),
+            }, ensure_ascii=True))

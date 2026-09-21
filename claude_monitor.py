@@ -103,6 +103,7 @@ class ClaudeHUD:
         self.busy = {name: False for name in ("Claude", "Codex")}
         self.last_success = {}
         self.workers = []
+        self.refresh_queue = []
         self.pinned = True
         self.dragged = False
         self.drag_origin = None
@@ -249,26 +250,27 @@ class ClaudeHUD:
         self.root.after_idle(self._position)
 
     def refresh_all(self):
-        if self.stop.is_set():
+        if self.stop.is_set() or any(self.busy.values()) or self.refresh_queue:
             return
-        for delay, (agent, path, fetch) in enumerate(
-                (("Claude", CLAUDE_PATH, fetch_claude),
-                 ("Codex", CODEX_PATH, fetch_codex))):
-            if self.busy[agent]:
-                continue
-            self.busy[agent] = True
-            self.status[agent].config(text="·", fg=COLORS["loading"])
-            if agent not in self.last_success:
-                self._write(agent, [("讀取中…", COLORS["waiting"])])
-            # Starting two interactive CLIs at the same instant increases loader,
-            # ConPTY, and network pressure. Reserve both slots now, launch Codex
-            # five seconds after Claude, and keep same-provider overlap blocked.
-            self.root.after(delay * 5000, self._start_fetch, agent, path, fetch)
+        # Never overlap the two interactive provider CLIs. The next collector
+        # starts only after _poll has consumed the previous collector's result.
+        self.refresh_queue = [
+            ("Claude", CLAUDE_PATH, fetch_claude),
+            ("Codex", CODEX_PATH, fetch_codex),
+        ]
+        self._start_next_fetch()
 
-    def _start_fetch(self, agent, path, fetch):
+    def _start_next_fetch(self):
         if self.stop.is_set():
-            self.busy[agent] = False
+            self.refresh_queue.clear()
             return
+        if any(self.busy.values()) or not self.refresh_queue:
+            return
+        agent, path, fetch = self.refresh_queue.pop(0)
+        self.busy[agent] = True
+        self.status[agent].config(text="·", fg=COLORS["loading"])
+        if agent not in self.last_success:
+            self._write(agent, [("讀取中…", COLORS["waiting"])])
         worker = threading.Thread(target=self._fetch, args=(agent, path, fetch), daemon=True)
         self.workers = [w for w in self.workers if w.is_alive()]
         self.workers.append(worker)
@@ -333,6 +335,7 @@ class ClaudeHUD:
                     else f"{quota.label}=n/a"
                     for quota in data)
                 self.logger.info("%s success quota_windows=%d values=%s", agent, len(data), values)
+            self._start_next_fetch()
         self.root.after(100, self._poll)
 
     def _scheduled_refresh(self):
@@ -344,6 +347,7 @@ class ClaudeHUD:
         if self.stop.is_set():
             return
         self.stop.set()
+        self.refresh_queue.clear()
         self._hide_tooltip()
         self.root.withdraw()
         self._finish_close()
