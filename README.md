@@ -68,7 +68,7 @@ HUD 是互動式桌面程式。排程應使用「僅限使用者登入時執行�
 - `ClaudeMonitor-Stop`：每天 20:00 執行 `stop`；每日 supervisor 最遲於下一次 30 秒檢查時結束。
 - 電池供電時仍允許執行，錯過排程後可補執行；`daily` 本身會檢查目前時間，20:00 後不會啟動 HUD。
 
-這台電腦使用 Python 3.12 的 `.venv_claude_monitor`，並透過上述兩個使用者環境變數指向 VS Code 擴充套件內附的 CLI。擴充套件更新並移除舊版本目錄後，需同步更新環境變數並重新啟動監測工具。
+這台電腦使用 Python 3.12 的 `.venv_claude_monitor`，並透過上述兩個使用者環境變數指定 CLI：Claude 使用 WinGet 安裝的 `Anthropic.ClaudeCode`，Codex 使用 VS Code 擴充套件內附的版本。Codex 擴充套件更新並移除舊版本目錄後，需同步更新 `CLAUDE_MONITOR_CODEX_PATH` 並重新啟動監測工具。Claude 首次執行須先完成主題選擇、登入與資料夾信任確認，再輸入 `/usage` 驗證額度。
 
 ## 操作方式
 
