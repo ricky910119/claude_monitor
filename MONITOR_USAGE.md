@@ -9,7 +9,7 @@
 
 目前使用專用環境 `.venv_claude_monitor`。唯一的 `claude_monitor.vbs` 同時提供每日監督、立即啟動與停止三種模式：
 
-- 直接雙擊或傳入 `daily`：常駐監督，07:00–19:00 確保 HUD 執行，其餘時間停止 HUD。
+- 直接雙擊或傳入 `daily`：常駐監督，07:00–20:00 確保 HUD 執行，其餘時間停止 HUD。
 - 傳入 `start`：立即啟動一次 HUD。
 - 傳入 `stop`：停止 HUD，並通知正在執行的每日 supervisor 結束。
 

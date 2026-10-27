@@ -45,7 +45,7 @@ $Python = Join-Path (Split-Path $Repo -Parent) '.venv_claude_monitor\Scripts\pyt
 
 直接雙擊 `claude_monitor.vbs` 等同 `daily` 模式：
 
-- `daily`：常駐監督，在每天 07:00–19:00 確保 HUD 執行，其餘時間停止 HUD。
+- `daily`：常駐監督，在每天 07:00–20:00 確保 HUD 執行，其餘時間停止 HUD。
 - `start`：立即啟動一次 HUD。
 - `stop`：停止 HUD，並通知正在執行的每日 supervisor 結束。
 
@@ -61,6 +61,14 @@ wscript.exe //B //Nologo "C:\path\to\claude_monitor\claude_monitor.vbs" daily
 ```
 
 HUD 是互動式桌面程式。排程應使用「僅限使用者登入時執行」；已登入但鎖定的工作階段仍可啟動，完全登出時則無法在使用者桌面顯示。
+
+目前電腦的工作排程器設定：
+
+- `ClaudeMonitor-Daily`：每天 07:00 及目前使用者登入時執行 `daily`，不限制執行時間，避免重複執行。
+- `ClaudeMonitor-Stop`：每天 20:00 執行 `stop`；每日 supervisor 最遲於下一次 30 秒檢查時結束。
+- 電池供電時仍允許執行，錯過排程後可補執行；`daily` 本身會檢查目前時間，20:00 後不會啟動 HUD。
+
+這台電腦使用 Python 3.12 的 `.venv_claude_monitor`，並透過上述兩個使用者環境變數指向 VS Code 擴充套件內附的 CLI。擴充套件更新並移除舊版本目錄後，需同步更新環境變數並重新啟動監測工具。
 
 ## 操作方式
 

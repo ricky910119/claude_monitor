@@ -48,7 +48,7 @@ Sub RunDaily()
             WScript.Quit 0
         End If
 
-        If Hour(Now) >= 7 And Hour(Now) < 19 Then
+        If Hour(Now) >= 7 And Hour(Now) < 20 Then
             If Not MonitorIsRunning() Then
                 LaunchMonitor
             End If
