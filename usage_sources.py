@@ -6,6 +6,7 @@ import math
 import os
 import ctypes
 from pathlib import Path
+import platform
 import queue
 import re
 import subprocess
@@ -127,9 +128,43 @@ def require_executable(path, agent):
         raise UsageError(f"啟動失敗：找不到 {agent} 執行檔，請檢查路徑設定")
 
 
+def resolve_codex_executable(path):
+    """Recover from versioned VS Code CLI paths removed by extension updates."""
+    preferred = Path(os.path.expandvars(path)).expanduser()
+    if preferred.is_file():
+        return str(preferred)
+
+    home = Path.home()
+    extension_roots = []
+    for parent in preferred.parents:
+        if parent.name.startswith("openai.chatgpt-") and parent.parent.name == "extensions":
+            extension_roots.append(parent.parent)
+            break
+    extension_roots.append(home / ".vscode/extensions")
+
+    def extension_version(executable):
+        match = re.match(r"openai\.chatgpt-(\d+(?:\.\d+)*)", executable.parents[2].name)
+        return tuple(int(part) for part in match.group(1).split(".")) if match else ()
+
+    # Prefer a replacement from the configured extension's own installation.
+    architecture = "aarch64" if platform.machine().lower() in ("arm64", "aarch64") else "x86_64"
+    for root in dict.fromkeys(extension_roots):
+        candidates = sorted(root.glob(f"openai.chatgpt-*/bin/windows-{architecture}/codex.exe"),
+                            key=extension_version, reverse=True)
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate)
+
+    standalone = home / "AppData/Local/Programs/OpenAI/Codex/bin/codex.exe"
+    if standalone.is_file():
+        return str(standalone)
+    raise UsageError("啟動失敗：找不到 Codex 執行檔，請安裝 Codex CLI 或 VS Code 擴充套件，"
+                     "或設定 CLAUDE_MONITOR_CODEX_PATH")
+
+
 def _fetch_codex_once(path, cwd, stop, timeout):
     """Local stdio app-server: initialize + quota read only, no thread/turn/MCP startup."""
-    require_executable(path, "Codex")
+    path = resolve_codex_executable(path)
     try:
         process = subprocess.Popen(
             [path, "app-server"], cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

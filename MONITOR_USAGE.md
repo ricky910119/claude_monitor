@@ -40,7 +40,7 @@ $Python = Join-Path (Split-Path $Repo -Parent) '.venv_claude_monitor\Scripts\pyt
 
 - Claude 使用目前使用者 `.local\bin\claude.exe`；safe mode 停用自訂 hooks/plugins 等設定，strict MCP 模式不載入設定中的 MCP。只輸入 `/usage`，不送出模型提示，也不自動確認信任或登入。
 - 首次使用須在本專案目錄手動啟動 Claude，完成登入與信任畫面後退出。
-- Codex 使用目前使用者 `AppData\Local\Programs\OpenAI\Codex\bin\codex.exe`，啟動本機 stdio `app-server`，只呼叫初始化與 `account/rateLimits/read`。不建立模型會話，也不啟動遠端開發 server。
+- Codex 每次讀取時優先使用有效的 `CLAUDE_MONITOR_CODEX_PATH`，未設定時使用目前使用者 `AppData\Local\Programs\OpenAI\Codex\bin\codex.exe`。路徑不存在時，會依序從原擴充套件目錄及 `%USERPROFILE%\.vscode\extensions` 尋找版本號最新且仍存在的 Codex，再嘗試預設獨立安裝位置，因此擴充套件更新移除舊目錄後可自動恢復。啟動本機 stdio `app-server` 時只呼叫初始化與 `account/rateLimits/read`，不建立模型會話，也不啟動遠端開發 server。
 - 可透過 `CLAUDE_MONITOR_CLAUDE_PATH`、`CLAUDE_MONITOR_CODEX_PATH` 環境變數指定其他原生執行檔位置。
 
 Claude 需支援 `--safe-mode`、`--strict-mcp-config` 等參數。Codex 需支援 `account/rateLimits/read`。
